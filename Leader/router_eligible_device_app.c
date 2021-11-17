@@ -79,6 +79,11 @@ Private macros
 #define APP_LED_URI_PATH                        "/led"
 #define APP_TEMP_URI_PATH                       "/temp"
 #define APP_SINK_URI_PATH                       "/sink"
+
+//LAB
+#define APP_RESOURCE1_URI_PATH					"/resource1"
+#define APP_RESOURCE2_URI_PATH					"/resource2"
+
 #if LARGE_NETWORK
 #define APP_RESET_TO_FACTORY_URI_PATH           "/reset"
 #endif
@@ -121,6 +126,11 @@ static void APP_CoapLedCb(coapSessionStatus_t sessionStatus, uint8_t *pData, coa
 static void APP_CoapTempCb(coapSessionStatus_t sessionStatus, uint8_t *pData, coapSession_t *pSession, uint32_t dataLen);
 static void APP_CoapSinkCb(coapSessionStatus_t sessionStatus, uint8_t *pData, coapSession_t *pSession, uint32_t dataLen);
 static void App_RestoreLeaderLed(uint8_t *param);
+
+// LAB
+static void APP_CoapResource1Cb(coapSessionStatus_t sessionStatus, void *pData, coapSession_t *pSession, uint32_t dataLen);
+static void APP_CoapResource2Cb(coapSessionStatus_t sessionStatus, void *pData, coapSession_t *pSession, uint32_t dataLen);
+
 #if LARGE_NETWORK
 static void APP_CoapResetToFactoryDefaultsCb(coapSessionStatus_t sessionStatus, uint8_t *pData, coapSession_t *pSession, uint32_t dataLen);
 static void APP_SendResetToFactoryCommand(uint8_t *param);
@@ -136,6 +146,11 @@ Public global variables declarations
 const coapUriPath_t gAPP_LED_URI_PATH  = {SizeOfString(APP_LED_URI_PATH), (uint8_t *)APP_LED_URI_PATH};
 const coapUriPath_t gAPP_TEMP_URI_PATH = {SizeOfString(APP_TEMP_URI_PATH), (uint8_t *)APP_TEMP_URI_PATH};
 const coapUriPath_t gAPP_SINK_URI_PATH = {SizeOfString(APP_SINK_URI_PATH), (uint8_t *)APP_SINK_URI_PATH};
+
+//LAB
+const coapUriPath_t gAPP_RESOURCE1_URI_PATH = {SizeOfString(APP_RESOURCE1_URI_PATH), APP_RESOURCE1_URI_PATH};
+const coapUriPath_t gAPP_RESOURCE2_URI_PATH = {SizeOfString(APP_RESOURCE2_URI_PATH), APP_RESOURCE2_URI_PATH};
+
 #if LARGE_NETWORK
 const coapUriPath_t gAPP_RESET_URI_PATH = {SizeOfString(APP_RESET_TO_FACTORY_URI_PATH), (uint8_t *)APP_RESET_TO_FACTORY_URI_PATH};
 #endif
@@ -487,6 +502,10 @@ static void APP_InitCoapDemo
 {
     coapRegCbParams_t cbParams[] =  {{APP_CoapLedCb,  (coapUriPath_t *)&gAPP_LED_URI_PATH},
                                      {APP_CoapTempCb, (coapUriPath_t *)&gAPP_TEMP_URI_PATH},
+
+									 {APP_CoapResource1Cb, (coapUriPath_t*)&gAPP_RESOURCE1_URI_PATH},  // LAB
+									 {APP_CoapResource2Cb, (coapUriPath_t*)&gAPP_RESOURCE2_URI_PATH},  // LAB
+
 #if LARGE_NETWORK
                                      {APP_CoapResetToFactoryDefaultsCb, (coapUriPath_t *)&gAPP_RESET_URI_PATH},
 #endif
@@ -1388,6 +1407,86 @@ static void App_RestoreLeaderLed
 {
     App_UpdateStateLeds(gDeviceState_Leader_c);
 }
+
+/** LAB **/
+
+static void APP_CoapResource1Cb
+(
+	coapSessionStatus_t sessionStatus,
+	void *pData,
+	coapSession_t *pSession,
+	uint32_t dataLen
+)
+{
+	static uint8_t pMySessionPayload[3]={0x31,0x32,0x33};
+	static uint32_t pMyPayloadSize=3;
+	coapSession_t *pMySession = NULL;
+	pMySession = COAP_OpenSession(mAppCoapInstId);
+	COAP_AddOptionToList(pMySession, COAP_URI_PATH_OPTION, APP_RESOURCE1_URI_PATH,SizeOfString(APP_RESOURCE1_URI_PATH));
+
+	if (gCoapConfirmable_c == pSession->msgType)
+	{
+		if (gCoapGET_c == pSession->code)
+		{
+			shell_write("'CON' packet received 'GET' with payload: ");
+		}
+		if (gCoapPOST_c == pSession->code)
+		{
+			shell_write("'CON' packet received 'POST' with payload: ");
+		}
+		if (gCoapPUT_c == pSession->code)
+		{
+			shell_write("'CON' packet received 'PUT' with payload: ");
+		}
+		if (gCoapFailure_c != sessionStatus)
+		{
+			COAP_Send(pSession, gCoapMsgTypeAckSuccessChanged_c, pMySessionPayload, pMyPayloadSize);
+		}
+	}
+
+	else if(gCoapNonConfirmable_c == pSession->msgType)
+	{
+		if (gCoapGET_c == pSession->code)
+		{
+			shell_write("'NON' packet received 'GET' with payload: ");
+		}
+		if (gCoapPOST_c == pSession->code)
+		{
+			shell_write("'NON' packet received 'POST' with payload: ");
+		}
+		if (gCoapPUT_c == pSession->code)
+		{
+			shell_write("'NON' packet received 'PUT' with payload: ");
+		}
+	}
+	shell_writeN(pData, dataLen);
+	shell_write("\r\n");
+	pMySession -> msgType=gCoapNonConfirmable_c;
+	pMySession -> code= gCoapPOST_c;
+	pMySession -> pCallback =NULL;
+	FLib_MemCpy(&pMySession->remoteAddrStorage,&gCoapDestAddress,sizeof(ipAddr_t));
+	COAP_Send(pMySession, gCoapMsgTypeNonPost_c, pMySessionPayload, pMyPayloadSize);
+	shell_write("'NON' packet sent 'POST' with payload: ");
+	shell_writeN((char*) pMySessionPayload, pMyPayloadSize);
+	shell_write("\r\n");
+}
+
+static void APP_CoapResource2Cb
+(
+coapSessionStatus_t sessionStatus,
+void *pData,
+coapSession_t *pSession,
+uint32_t dataLen
+)
+{
+  if (gCoapNonConfirmable_c == pSession->msgType)
+  {
+      shell_write("'NON' packet received 'POST' with payload: ");
+      shell_writeN(pData, dataLen);
+      shell_write("\r\n");
+  }
+}
+
 
 #if LARGE_NETWORK
 /*!*************************************************************************************************
