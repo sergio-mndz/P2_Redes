@@ -22,6 +22,7 @@ Include Files
 #include "shell.h"
 #include "Keyboard.h"
 #include "RNG_Interface.h"
+#include "TimersManager.h"
 
 /* Network */
 #include "ip_if_management.h"
@@ -83,6 +84,7 @@ Private macros
 //LAB
 #define APP_RESOURCE1_URI_PATH					"/resource1"
 #define APP_RESOURCE2_URI_PATH					"/resource2"
+#define APP_TEAM9_URI_PATH						"/team9"
 
 #if LARGE_NETWORK
 #define APP_RESET_TO_FACTORY_URI_PATH           "/reset"
@@ -130,6 +132,7 @@ static void App_RestoreLeaderLed(uint8_t *param);
 // LAB
 static void APP_CoapResource1Cb(coapSessionStatus_t sessionStatus, void *pData, coapSession_t *pSession, uint32_t dataLen);
 static void APP_CoapResource2Cb(coapSessionStatus_t sessionStatus, void *pData, coapSession_t *pSession, uint32_t dataLen);
+static void APP_CoapTeam9Cb(coapSessionStatus_t sessionStatus, void *pData, coapSession_t *pSession, uint32_t dataLen);
 
 #if LARGE_NETWORK
 static void APP_CoapResetToFactoryDefaultsCb(coapSessionStatus_t sessionStatus, uint8_t *pData, coapSession_t *pSession, uint32_t dataLen);
@@ -150,6 +153,7 @@ const coapUriPath_t gAPP_SINK_URI_PATH = {SizeOfString(APP_SINK_URI_PATH), (uint
 //LAB
 const coapUriPath_t gAPP_RESOURCE1_URI_PATH = {SizeOfString(APP_RESOURCE1_URI_PATH), APP_RESOURCE1_URI_PATH};
 const coapUriPath_t gAPP_RESOURCE2_URI_PATH = {SizeOfString(APP_RESOURCE2_URI_PATH), APP_RESOURCE2_URI_PATH};
+const coapUriPath_t gAPP_TEAM9_URI_PATH		= {SizeOfString(APP_TEAM9_URI_PATH), APP_TEAM9_URI_PATH};
 
 #if LARGE_NETWORK
 const coapUriPath_t gAPP_RESET_URI_PATH = {SizeOfString(APP_RESET_TO_FACTORY_URI_PATH), (uint8_t *)APP_RESET_TO_FACTORY_URI_PATH};
@@ -331,6 +335,7 @@ void Stack_to_APP_Handler
             APP_JoinEventsHandler(pEventParams->code);
             break;
 
+        // TODO: Init timer
         case gThrEv_GeneralInd_Connected_c:
             App_UpdateStateLeds(gDeviceState_NwkConnected_c);
             /* Set application CoAP destination to all nodes on connected network */
@@ -505,6 +510,7 @@ static void APP_InitCoapDemo
 
 									 {APP_CoapResource1Cb, (coapUriPath_t*)&gAPP_RESOURCE1_URI_PATH},  // LAB
 									 {APP_CoapResource2Cb, (coapUriPath_t*)&gAPP_RESOURCE2_URI_PATH},  // LAB
+									 {APP_CoapTeam9Cb, (coapUriPath_t*)&gAPP_TEAM9_URI_PATH},
 
 #if LARGE_NETWORK
                                      {APP_CoapResetToFactoryDefaultsCb, (coapUriPath_t *)&gAPP_RESET_URI_PATH},
@@ -1485,6 +1491,80 @@ uint32_t dataLen
       shell_writeN(pData, dataLen);
       shell_write("\r\n");
   }
+}
+
+static void APP_CoapTeam9Cb
+(
+	coapSessionStatus_t sessionStatus,
+	void *pData,
+	coapSession_t *pSession,
+	uint32_t dataLen
+)
+{
+	static uint8_t pMySessionPayload[3]={0x31,0x32,0x33};
+	static uint32_t pMyPayloadSize=3;
+	coapSession_t *pMySession = NULL;
+	pMySession = COAP_OpenSession(mAppCoapInstId);
+	COAP_AddOptionToList(pMySession, COAP_URI_PATH_OPTION, APP_RESOURCE1_URI_PATH,SizeOfString(APP_RESOURCE1_URI_PATH));
+
+	if (gCoapConfirmable_c == pSession->msgType)
+	{
+		shell_printf("CON instruction received from %x::%x:%x:%x:%x", pSession->localAddr.addr16[7],
+																	  pSession->localAddr.addr16[6],
+																	  pSession->localAddr.addr16[5],
+																	  pSession->localAddr.addr16[4],
+																	  pSession->localAddr.addr16[3]);
+
+		/*
+		if (gCoapGET_c == pSession->code)
+		{
+			shell_write("'CON' packet received 'GET' with payload: ");
+		}
+		if (gCoapPOST_c == pSession->code)
+		{
+			shell_write("'CON' packet received 'POST' with payload: ");
+		}
+		if (gCoapPUT_c == pSession->code)
+		{
+			shell_write("'CON' packet received 'PUT' with payload: ");
+		} */
+		if (gCoapFailure_c != sessionStatus)
+		{
+			COAP_Send(pSession, gCoapMsgTypeAckSuccessChanged_c, pMySessionPayload, pMyPayloadSize);
+		}
+	}
+
+	else if(gCoapNonConfirmable_c == pSession->msgType)
+	{
+		shell_printf("NON instruction received from %x::%x:%x:%x:%x", pSession->localAddr.addr16[7],
+																	  pSession->localAddr.addr16[6],
+																	  pSession->localAddr.addr16[5],
+																	  pSession->localAddr.addr16[4],
+																	  pSession->localAddr.addr16[3]);
+		/*
+		if (gCoapGET_c == pSession->code)
+		{
+			shell_write("'NON' packet received 'GET' with payload: ");
+		}
+		if (gCoapPOST_c == pSession->code)
+		{
+			shell_write("'NON' packet received 'POST' with payload: ");
+		}
+		if (gCoapPUT_c == pSession->code)
+		{
+			shell_write("'NON' packet received 'PUT' with payload: ");
+		}
+		*/
+	}
+	shell_write("\r\n");
+/*	pMySession -> msgType=gCoapNonConfirmable_c;
+	pMySession -> code= gCoapPOST_c;
+	pMySession -> pCallback =NULL;
+	FLib_MemCpy(&pMySession->remoteAddrStorage,&gCoapDestAddress,sizeof(ipAddr_t));
+	COAP_Send(pMySession, gCoapMsgTypeNonPost_c, pMySessionPayload, pMyPayloadSize);
+	shell_write("'NON' packet sent 'POST' with payload: ");
+	shell_writeN((char*) pMySessionPayload, pMyPayloadSize);
+	shell_write("\r\n"); */
 }
 
 
