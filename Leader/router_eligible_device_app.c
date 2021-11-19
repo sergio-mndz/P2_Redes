@@ -24,6 +24,8 @@ Include Files
 #include "RNG_Interface.h"
 #include "TimersManager.h"
 
+#include "Timers.h"
+
 /* Network */
 #include "ip_if_management.h"
 #include "event_manager.h"
@@ -215,6 +217,9 @@ void APP_Init
     /* Use one instance ID for application */
     mThrInstanceId = gThrDefaultInstanceId_c;
 
+    // Practica
+    timerTask_Init();
+
 #if THR_ENABLE_EVENT_MONITORING
     /* Initialize event monitoring */
     APP_InitEventMonitor(mThrInstanceId);
@@ -335,7 +340,6 @@ void Stack_to_APP_Handler
             APP_JoinEventsHandler(pEventParams->code);
             break;
 
-        // TODO: Init timer
         case gThrEv_GeneralInd_Connected_c:
             App_UpdateStateLeds(gDeviceState_NwkConnected_c);
             /* Set application CoAP destination to all nodes on connected network */
@@ -348,6 +352,9 @@ void Stack_to_APP_Handler
             gEnable802154TxLed = TRUE;
             /* Uncomment to register multicast address */
             //IP_IF_AddMulticastGroup6(gIpIfSlp0_c, &mCastGroup);
+
+            // Practica
+            timer1s_Start();
             break;
 
         case gThrEv_GeneralInd_RequestRouterId_c:
