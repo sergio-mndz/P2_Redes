@@ -24,6 +24,12 @@ Include Files
 #include "RNG_Interface.h"
 #include "TimersManager.h"
 
+// Parte 2
+#include "math.h"
+#include "fsl_fxos.h"
+#include "fsl_i2c.h"
+#include "fsl_tpm.h"
+
 #include "Timers.h"
 
 /* Network */
