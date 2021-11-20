@@ -1335,6 +1335,7 @@ static void APP_CoapTempCb
             char addrStr[INET6_ADDRSTRLEN];
             uint8_t temp[10];
 
+            // TODO: Check this function
             ntop(AF_INET6, (ipAddr_t*)&pSession->remoteAddrStorage.ss_addr, addrStr, INET6_ADDRSTRLEN);
             shell_write("\r");
 
@@ -1517,17 +1518,14 @@ static void APP_CoapTeam9Cb
 	static uint8_t pMySessionPayload[3]={0x31,0x32,0x33};
 	static uint32_t pMyPayloadSize=3;
 	coapSession_t *pMySession = NULL;
+	char addrStr[INET6_ADDRSTRLEN];
 	pMySession = COAP_OpenSession(mAppCoapInstId);
 	COAP_AddOptionToList(pMySession, COAP_URI_PATH_OPTION, APP_RESOURCE1_URI_PATH,SizeOfString(APP_RESOURCE1_URI_PATH));
 
 	if (gCoapConfirmable_c == pSession->msgType)
 	{
-		shell_printf("CON instruction received from %x::%x:%x:%x:%x", pSession->localAddr.addr16[7],
-																	  pSession->localAddr.addr16[6],
-																	  pSession->localAddr.addr16[5],
-																	  pSession->localAddr.addr16[4],
-																	  pSession->localAddr.addr16[3]);
-
+		ntop(AF_INET6, (ipAddr_t*)&pSession->remoteAddrStorage.ss_addr, addrStr, INET6_ADDRSTRLEN);
+		shell_printf("\t CON instruction received from: %s\n\r", addrStr);
 		/*
 		if (gCoapGET_c == pSession->code)
 		{
@@ -1549,11 +1547,8 @@ static void APP_CoapTeam9Cb
 
 	else if(gCoapNonConfirmable_c == pSession->msgType)
 	{
-		shell_printf("NON instruction received from %x::%x:%x:%x:%x", pSession->localAddr.addr16[7],
-																	  pSession->localAddr.addr16[6],
-																	  pSession->localAddr.addr16[5],
-																	  pSession->localAddr.addr16[4],
-																	  pSession->localAddr.addr16[3]);
+		ntop(AF_INET6, (ipAddr_t*)&pSession->remoteAddrStorage.ss_addr, addrStr, INET6_ADDRSTRLEN);
+		shell_printf("\t NON instruction received from: %s\n\r", addrStr);
 		/*
 		if (gCoapGET_c == pSession->code)
 		{
