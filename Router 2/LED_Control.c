@@ -32,14 +32,18 @@ void toggle_w_LED()
 {
 	//LED_ToggleLed(LED2);
 
+	static uint8_t init = 0;
 
-	LED_Init();
+	if( 0== init)
+	{
+		LED_Init();
+	}
 
 	static uint8_t flag_toggle = 0 ;
 
 	if ( 0 == flag_toggle)
 	{
-		LED_TurnOnLed(LED3);
+		LED_TurnOnAllLeds();
 		flag_toggle = 1 ;
 	}
 	else

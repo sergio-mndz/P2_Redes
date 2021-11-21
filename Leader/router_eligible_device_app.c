@@ -1593,7 +1593,7 @@ static void APP_CoapTeam9Cb
 			uint8_t counter  = getCounter();
 			COAP_Send(pMySession, gCoapMsgTypeNonPost_c, &counter, 1);
 			shell_write("'NON' packet sent  with counter value: ");
-			shell_writeN((char*) counter, 1);
+			shell_printf(" %i", counter);
 			shell_write("\r\n");
 		}
 		if (gCoapPOST_c == pSession->code)

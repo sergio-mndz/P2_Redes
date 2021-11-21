@@ -327,6 +327,22 @@ extern void timer5s_extern_callback(){
 	//shell_write("\ requesting to URI team9 counter");
 
 
+	static uint32_t pMyPayloadSize=3;
+	coapSession_t *pMySession = NULL;
+	pMySession = COAP_OpenSession(mAppCoapInstId);
+	COAP_AddOptionToList(pMySession, COAP_URI_PATH_OPTION, APP_TEAM9_URI_PATH,SizeOfString(APP_TEAM9_URI_PATH));
+
+
+	/// send reply message
+	shell_write("\r\n");
+	pMySession -> msgType=gCoapNonConfirmable_c;
+	pMySession -> code= gCoapGET_c;
+	pMySession -> pCallback =NULL;
+	FLib_MemCpy(&pMySession->remoteAddrStorage,&gCoapDestAddress,sizeof(ipAddr_t));
+
+	uint8_t counter = (uint8_t)'H' ;
+	COAP_Send(pMySession, gCoapMsgTypeNonGet_c, &counter, 1);
+	shell_write("'NON' packet sent  with counter value: ");
 
 }
 
@@ -1521,10 +1537,11 @@ static void APP_CoapResource2Cb
 		uint32_t dataLen
 )
 {
+	uint8_t * recv_data =  (uint8_t * )( pData);
 	if (gCoapNonConfirmable_c == pSession->msgType)
 	{
 		shell_write("'NON' packet received 'POST' with payload: ");
-		shell_writeN(pData, dataLen);
+		shell_printf("\r\n  received  %i", * recv_data);
 		shell_write("\r\n");
 		//COAP_CloseSession(pSession);
 	}
