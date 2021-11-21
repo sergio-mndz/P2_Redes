@@ -28,4 +28,7 @@ void timer5s_Start(void);
 
 void timerTask_Init(void);
 
+
+void timer5s_extern_callback();
+
 #endif /* TIMERS_H_ */

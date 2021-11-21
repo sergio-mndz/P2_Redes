@@ -18,10 +18,14 @@ osaTaskId_t gTimerTaskHandler_ID;
 /* This is the function called by the Timer each time it expires */
 static void taskTimerCallback(void *param)
 {
-	OSA_EventSet(timerEvents, gTimerTaskEvent1_c);
+	//OSA_EventSet(timerEvents, gTimerTaskEvent1_c);
 
-	/**este evento sera usado para incrementar el contador*/
+
+	timer5s_extern_callback();
 }
+
+
+
 
 void My_Task(osaTaskParam_t argument)
 {
