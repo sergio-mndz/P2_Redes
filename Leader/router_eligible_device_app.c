@@ -1507,14 +1507,14 @@ static void APP_CoapResource2Cb
 		shell_write("'NON' packet received 'POST' with payload: ");
 		shell_writeN(pData, dataLen);
 		shell_write("\r\n");
-		COAP_CloseSession(pSession);
+		//COAP_CloseSession(pSession);
 	}
 	if (gCoapConfirmable_c == pSession->msgType)
 	{
 		shell_write("'CON' packet received 'POST' with payload: ");
 		shell_writeN(pData, dataLen);
 		shell_write("\r\n");
-		COAP_CloseSession(pSession);
+		//COAP_CloseSession(pSession);
 	}
 }
 
@@ -1532,19 +1532,27 @@ static void APP_CoapTeam9Cb
 	pMySession = COAP_OpenSession(mAppCoapInstId);
 	COAP_AddOptionToList(pMySession, COAP_URI_PATH_OPTION, APP_RESOURCE2_URI_PATH,SizeOfString(APP_RESOURCE2_URI_PATH));
 
+
+	/** print on shell the shell address of the requester*/
+	shell_printf("\r\n   Team 9  Received from %x%x::%x%x:%x%x::%x%x::%x%x", pSession->remoteAddrStorage.ss_addr[0],
+			pSession->remoteAddrStorage.ss_addr[1],
+
+			pSession->remoteAddrStorage.ss_addr[8],
+			pSession->remoteAddrStorage.ss_addr[9],
+
+			pSession->remoteAddrStorage.ss_addr[10],
+			pSession->remoteAddrStorage.ss_addr[11],
+
+			pSession->remoteAddrStorage.ss_addr[12],
+			pSession->remoteAddrStorage.ss_addr[13],
+
+			pSession->remoteAddrStorage.ss_addr[14]
+	);
+
 	if (gCoapConfirmable_c == pSession->msgType)
 	{
-		//		NWKU_ConvertIp4Addr(pIp4AddrData->ip4Addr, &inIpAddr);
-		//		ntop(AF_INET, &inIpAddr, addrStr, INET_ADDRSTRLEN);
-		shell_write("\r\n CON Requested URI at team 9: ");
 
-		//		shell_printf("CON instruction received from %x::%x:%x:%x:%x", pSession->localAddr.addr16[7],
-		//				pSession->localAddr.addr16[6],
-		//				pSession->localAddr.addr16[5],
-		//				pSession->localAddr.addr16[4],
-		//				pSession->localAddr.addr16[3]);
 
-		/*
 		if (gCoapGET_c == pSession->code)
 		{
 			shell_write("'CON' packet received 'GET' with payload: ");
@@ -1556,7 +1564,8 @@ static void APP_CoapTeam9Cb
 		if (gCoapPUT_c == pSession->code)
 		{
 			shell_write("'CON' packet received 'PUT' with payload: ");
-		} */
+		}
+		///** send ACK , as the message is CON */
 		if (gCoapFailure_c != sessionStatus)
 		{
 			COAP_Send(pMySession, gCoapMsgTypeAckSuccessChanged_c, pMySessionPayload, pMyPayloadSize);
@@ -1568,12 +1577,7 @@ static void APP_CoapTeam9Cb
 	else if(gCoapNonConfirmable_c == pSession->msgType)
 	{
 		shell_write("\r\n NON Requested URI at team 9: ");
-		//		shell_printf("NON instruction received from %x::%x:%x:%x:%x", pSession->localAddr.addr16[7],
-		//				pSession->localAddr.addr16[6],
-		//				pSession->localAddr.addr16[5],
-		//				pSession->localAddr.addr16[4],
-		//				pSession->localAddr.addr16[3]);
-		/*
+
 		if (gCoapGET_c == pSession->code)
 		{
 			shell_write("'NON' packet received 'GET' with payload: ");
@@ -1586,17 +1590,20 @@ static void APP_CoapTeam9Cb
 		{
 			shell_write("'NON' packet received 'PUT' with payload: ");
 		}
-		 */
+
+		/// send reply message
+		shell_write("\r\n");
+		pMySession -> msgType=gCoapNonConfirmable_c;
+		pMySession -> code= gCoapPOST_c;
+		pMySession -> pCallback =NULL;
+		FLib_MemCpy(&pMySession->remoteAddrStorage,&gCoapDestAddress,sizeof(ipAddr_t));
+		COAP_Send(pMySession, gCoapMsgTypeNonPost_c, pMySessionPayload, pMyPayloadSize);
+		shell_write("'NON' packet sent 'POST' with payload: ");
+		shell_writeN((char*) pMySessionPayload, pMyPayloadSize);
+		shell_write("\r\n");
+
 	}
-	shell_write("\r\n");
-	/*	pMySession -> msgType=gCoapNonConfirmable_c;
-	pMySession -> code= gCoapPOST_c;
-	pMySession -> pCallback =NULL;
-	FLib_MemCpy(&pMySession->remoteAddrStorage,&gCoapDestAddress,sizeof(ipAddr_t));
-	COAP_Send(pMySession, gCoapMsgTypeNonPost_c, pMySessionPayload, pMyPayloadSize);
-	shell_write("'NON' packet sent 'POST' with payload: ");
-	shell_writeN((char*) pMySessionPayload, pMyPayloadSize);
-	shell_write("\r\n"); */
+
 	COAP_CloseSession(pSession);
 
 }
