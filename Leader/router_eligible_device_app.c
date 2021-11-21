@@ -92,7 +92,9 @@ Private macros
 //LAB
 #define APP_RESOURCE1_URI_PATH					"/resource1"
 #define APP_RESOURCE2_URI_PATH					"/resource2"
+//practica
 #define APP_TEAM9_URI_PATH						"/team9"
+#define APP_ACCEL_URI_PATH                      "/accel"
 
 #if LARGE_NETWORK
 #define APP_RESET_TO_FACTORY_URI_PATH           "/reset"
@@ -141,6 +143,7 @@ static void App_RestoreLeaderLed(uint8_t *param);
 static void APP_CoapResource1Cb(coapSessionStatus_t sessionStatus, void *pData, coapSession_t *pSession, uint32_t dataLen);
 static void APP_CoapResource2Cb(coapSessionStatus_t sessionStatus, void *pData, coapSession_t *pSession, uint32_t dataLen);
 static void APP_CoapTeam9Cb(coapSessionStatus_t sessionStatus, void *pData, coapSession_t *pSession, uint32_t dataLen);
+static void APP_CoapaccelCb(coapSessionStatus_t sessionStatus, void *pData, coapSession_t *pSession, uint32_t dataLen);
 
 #if LARGE_NETWORK
 static void APP_CoapResetToFactoryDefaultsCb(coapSessionStatus_t sessionStatus, uint8_t *pData, coapSession_t *pSession, uint32_t dataLen);
@@ -161,7 +164,9 @@ const coapUriPath_t gAPP_SINK_URI_PATH = {SizeOfString(APP_SINK_URI_PATH), (uint
 //LAB
 const coapUriPath_t gAPP_RESOURCE1_URI_PATH = {SizeOfString(APP_RESOURCE1_URI_PATH), APP_RESOURCE1_URI_PATH};
 const coapUriPath_t gAPP_RESOURCE2_URI_PATH = {SizeOfString(APP_RESOURCE2_URI_PATH), APP_RESOURCE2_URI_PATH};
+//practica
 const coapUriPath_t gAPP_TEAM9_URI_PATH		= {SizeOfString(APP_TEAM9_URI_PATH), APP_TEAM9_URI_PATH};
+const coapUriPath_t gAPP_accel_URI_PATH		= {SizeOfString(APP_ACCEL_URI_PATH), APP_ACCEL_URI_PATH};
 
 #if LARGE_NETWORK
 const coapUriPath_t gAPP_RESET_URI_PATH = {SizeOfString(APP_RESET_TO_FACTORY_URI_PATH), (uint8_t *)APP_RESET_TO_FACTORY_URI_PATH};
@@ -524,6 +529,8 @@ static void APP_InitCoapDemo
 			//{APP_CoapResource1Cb, (coapUriPath_t*)&gAPP_TEAM9_URI_PATH},  // LAB
 			{APP_CoapResource2Cb, (coapUriPath_t*)&gAPP_RESOURCE2_URI_PATH},  // LAB
 			{APP_CoapTeam9Cb, (coapUriPath_t*)&gAPP_TEAM9_URI_PATH},//PRACTICA
+			{APP_CoapaccelCb, (coapUriPath_t*)&gAPP_TEAM9_URI_PATH},//PRACTICA
+
 
 #if LARGE_NETWORK
 			{APP_CoapResetToFactoryDefaultsCb, (coapUriPath_t *)&gAPP_RESET_URI_PATH},
@@ -1429,6 +1436,8 @@ static void App_RestoreLeaderLed
 
 /** LAB **/
 
+
+
 static void APP_CoapResource1Cb
 (
 		coapSessionStatus_t sessionStatus,
@@ -1518,6 +1527,101 @@ static void APP_CoapResource2Cb
 	}
 }
 
+
+static void APP_CoapaccelCb
+(
+		coapSessionStatus_t sessionStatus,
+		void *pData,
+		coapSession_t *pSession,
+		uint32_t dataLen
+)
+{
+	static uint8_t pMySessionPayload[3]={0x31,0x32,0x33};
+	static uint32_t pMyPayloadSize=3;
+	coapSession_t *pMySession = NULL;
+	pMySession = COAP_OpenSession(mAppCoapInstId);
+	COAP_AddOptionToList(pMySession, COAP_URI_PATH_OPTION, APP_RESOURCE2_URI_PATH,SizeOfString(APP_RESOURCE2_URI_PATH));
+
+
+	/** print on shell the shell address of the requester*/
+	shell_printf("\r\n   Team 9  Received from %x%x::%x%x:%x%x::%x%x::%x%x", pSession->remoteAddrStorage.ss_addr[0],
+			pSession->remoteAddrStorage.ss_addr[1],
+
+			pSession->remoteAddrStorage.ss_addr[8],
+			pSession->remoteAddrStorage.ss_addr[9],
+
+			pSession->remoteAddrStorage.ss_addr[10],
+			pSession->remoteAddrStorage.ss_addr[11],
+
+			pSession->remoteAddrStorage.ss_addr[12],
+			pSession->remoteAddrStorage.ss_addr[13],
+
+			pSession->remoteAddrStorage.ss_addr[14]
+	);
+
+	if (gCoapConfirmable_c == pSession->msgType)
+	{
+
+
+		if (gCoapGET_c == pSession->code)
+		{
+			shell_write("'CON' packet received 'GET' with payload: ");
+		}
+		if (gCoapPOST_c == pSession->code)
+		{
+			shell_write("'CON' packet received 'POST' with payload: ");
+		}
+		if (gCoapPUT_c == pSession->code)
+		{
+			shell_write("'CON' packet received 'PUT' with payload: ");
+		}
+		///** send ACK , as the message is CON */
+		if (gCoapFailure_c != sessionStatus)
+		{
+			COAP_Send(pMySession, gCoapMsgTypeAckSuccessChanged_c, pMySessionPayload, pMyPayloadSize);
+
+			//COAP_CloseSession(pSession);
+		}
+	}
+
+	else if(gCoapNonConfirmable_c == pSession->msgType)
+	{
+		shell_write("\r\n NON Requested URI at team 9: ");
+
+		if (gCoapGET_c == pSession->code)
+		{
+			shell_write("'NON' packet received 'GET' with payload: ");
+
+
+			/// send reply message
+			shell_write("\r\n");
+			pMySession -> msgType=gCoapNonConfirmable_c;
+			pMySession -> code= gCoapPOST_c;
+			pMySession -> pCallback =NULL;
+			FLib_MemCpy(&pMySession->remoteAddrStorage,&gCoapDestAddress,sizeof(ipAddr_t));
+
+			uint8_t counter  = getCounter();
+			COAP_Send(pMySession, gCoapMsgTypeNonPost_c, &counter, 1);
+			shell_write("'NON' packet sent  with counter value: ");
+			shell_printf(" %i", counter);
+			shell_write("\r\n");
+		}
+		if (gCoapPOST_c == pSession->code)
+		{
+			shell_write("'NON' packet received 'POST' with payload: ");
+		}
+		if (gCoapPUT_c == pSession->code)
+		{
+			shell_write("'NON' packet received 'PUT' with payload: ");
+		}
+
+
+
+	}
+
+	COAP_CloseSession(pSession);
+
+}
 static void APP_CoapTeam9Cb
 (
 		coapSessionStatus_t sessionStatus,
