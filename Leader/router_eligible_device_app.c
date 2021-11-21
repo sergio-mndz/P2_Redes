@@ -1581,6 +1581,20 @@ static void APP_CoapTeam9Cb
 		if (gCoapGET_c == pSession->code)
 		{
 			shell_write("'NON' packet received 'GET' with payload: ");
+
+
+			/// send reply message
+			shell_write("\r\n");
+			pMySession -> msgType=gCoapNonConfirmable_c;
+			pMySession -> code= gCoapPOST_c;
+			pMySession -> pCallback =NULL;
+			FLib_MemCpy(&pMySession->remoteAddrStorage,&gCoapDestAddress,sizeof(ipAddr_t));
+
+			uint8_t counter  = getCounter();
+			COAP_Send(pMySession, gCoapMsgTypeNonPost_c, &counter, 1);
+			shell_write("'NON' packet sent  with counter value: ");
+			shell_writeN((char*) counter, 1);
+			shell_write("\r\n");
 		}
 		if (gCoapPOST_c == pSession->code)
 		{
@@ -1591,16 +1605,7 @@ static void APP_CoapTeam9Cb
 			shell_write("'NON' packet received 'PUT' with payload: ");
 		}
 
-		/// send reply message
-		shell_write("\r\n");
-		pMySession -> msgType=gCoapNonConfirmable_c;
-		pMySession -> code= gCoapPOST_c;
-		pMySession -> pCallback =NULL;
-		FLib_MemCpy(&pMySession->remoteAddrStorage,&gCoapDestAddress,sizeof(ipAddr_t));
-		COAP_Send(pMySession, gCoapMsgTypeNonPost_c, pMySessionPayload, pMyPayloadSize);
-		shell_write("'NON' packet sent 'POST' with payload: ");
-		shell_writeN((char*) pMySessionPayload, pMyPayloadSize);
-		shell_write("\r\n");
+
 
 	}
 
