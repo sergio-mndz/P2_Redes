@@ -94,7 +94,10 @@ Private macros
 //LAB
 #define APP_RESOURCE1_URI_PATH					"/resource1"
 #define APP_RESOURCE2_URI_PATH					"/resource2"
+//practica
 #define APP_TEAM9_URI_PATH						"/team9"
+#define APP_ACCEL_URI_PATH                      "/accel"
+#define APP_RECEIVE_ACCEL_URI_PATH              "/receive_accel"
 
 #if LARGE_NETWORK
 #define APP_RESET_TO_FACTORY_URI_PATH           "/reset"
@@ -143,6 +146,7 @@ static void App_RestoreLeaderLed(uint8_t *param);
 static void APP_CoapResource1Cb(coapSessionStatus_t sessionStatus, void *pData, coapSession_t *pSession, uint32_t dataLen);
 static void APP_CoapResource2Cb(coapSessionStatus_t sessionStatus, void *pData, coapSession_t *pSession, uint32_t dataLen);
 static void APP_CoapTeam9Cb(coapSessionStatus_t sessionStatus, void *pData, coapSession_t *pSession, uint32_t dataLen);
+static void APP_ReceiveAccel(coapSessionStatus_t sessionStatus, void *pData, coapSession_t *pSession, uint32_t dataLen);
 
 #if LARGE_NETWORK
 static void APP_CoapResetToFactoryDefaultsCb(coapSessionStatus_t sessionStatus, uint8_t *pData, coapSession_t *pSession, uint32_t dataLen);
@@ -164,6 +168,7 @@ const coapUriPath_t gAPP_SINK_URI_PATH = {SizeOfString(APP_SINK_URI_PATH), (uint
 const coapUriPath_t gAPP_RESOURCE1_URI_PATH = {SizeOfString(APP_RESOURCE1_URI_PATH), APP_RESOURCE1_URI_PATH};
 const coapUriPath_t gAPP_RESOURCE2_URI_PATH = {SizeOfString(APP_RESOURCE2_URI_PATH), APP_RESOURCE2_URI_PATH};
 const coapUriPath_t gAPP_TEAM9_URI_PATH		= {SizeOfString(APP_TEAM9_URI_PATH), APP_TEAM9_URI_PATH};
+const coapUriPath_t gAPP_RECEIVE_ACCEL_URI_PATH		= {SizeOfString(APP_RECEIVE_ACCEL_URI_PATH), APP_RECEIVE_ACCEL_URI_PATH};
 
 #if LARGE_NETWORK
 const coapUriPath_t gAPP_RESET_URI_PATH = {SizeOfString(APP_RESET_TO_FACTORY_URI_PATH), (uint8_t *)APP_RESET_TO_FACTORY_URI_PATH};
@@ -317,16 +322,29 @@ void APP_NwkScanHandler
 
 ///* Practica*/
 
-/* this extern callback is meant to be called
- by the 5s timer callback, which will be started
- whenever the router connection is made with th router*/
-extern void timer5s_extern_callback(){
+/* this function will request the accelerometer
+ * values from the leader  at uri path accel*/
+inline  void coap_get_accel( void)
+{
+	static uint32_t pMyPayloadSize=3;
+	coapSession_t *pMySession = NULL;
+	pMySession = COAP_OpenSession(mAppCoapInstId);
+	COAP_AddOptionToList(pMySession, COAP_URI_PATH_OPTION, APP_ACCEL_URI_PATH,SizeOfString(APP_ACCEL_URI_PATH));
 
+	/// send reply message
+	shell_write("\r\n");
+	pMySession -> msgType=gCoapNonConfirmable_c;
+	pMySession -> code= gCoapGET_c;
+	pMySession -> pCallback =NULL;
+	FLib_MemCpy(&pMySession->remoteAddrStorage,&gCoapDestAddress,sizeof(ipAddr_t));
 
-	toggle_w_LED();
-	//shell_write("\ requesting to URI team9 counter");
+	uint8_t counter = (uint8_t)'A' ;
+	COAP_Send(pMySession, gCoapMsgTypeNonGet_c, &counter, 1);
+	shell_write("Requested  NON' packet to get accel value \n ");
+}
 
-
+inline void coap_get_time( void)
+{
 	static uint32_t pMyPayloadSize=3;
 	coapSession_t *pMySession = NULL;
 	pMySession = COAP_OpenSession(mAppCoapInstId);
@@ -340,11 +358,25 @@ extern void timer5s_extern_callback(){
 	pMySession -> pCallback =NULL;
 	FLib_MemCpy(&pMySession->remoteAddrStorage,&gCoapDestAddress,sizeof(ipAddr_t));
 
-	uint8_t counter = (uint8_t)'H' ;
+	uint8_t counter = (uint8_t)'C' ;
 	COAP_Send(pMySession, gCoapMsgTypeNonGet_c, &counter, 1);
-	shell_write("'NON' packet sent  with counter value: ");
-
+	shell_write("'Requested  NON' packet to get counter value \nteam ");
 }
+
+/* this extern callback is meant to be called
+ by the 5s timer callback, which will be started
+ whenever the router connection is made with th router*/
+extern void timer5s_extern_callback(){
+
+
+	toggle_w_LED();
+
+	// only this must be called every 5 seconds.
+	//coap_get_time();
+	coap_get_accel();
+}
+
+
 
 
 /*!*************************************************************************************************
@@ -558,7 +590,9 @@ static void APP_InitCoapDemo
 
 			//{APP_CoapResource1Cb, (coapUriPath_t*)&gAPP_TEAM9_URI_PATH},  // LAB
 			{APP_CoapResource2Cb, (coapUriPath_t*)&gAPP_RESOURCE2_URI_PATH},  // LAB
-			{APP_CoapTeam9Cb, (coapUriPath_t*)&gAPP_TEAM9_URI_PATH},//PRACTICA
+			{APP_CoapTeam9Cb, (coapUriPath_t*)&gAPP_TEAM9_URI_PATH},
+			{APP_ReceiveAccel, (coapUriPath_t*)&gAPP_RECEIVE_ACCEL_URI_PATH},
+			//PRACTICA
 
 #if LARGE_NETWORK
 			{APP_CoapResetToFactoryDefaultsCb, (coapUriPath_t *)&gAPP_RESET_URI_PATH},
@@ -1529,6 +1563,41 @@ static void APP_CoapResource1Cb
 
 }
 
+uint16_t  xData = 0 ;
+uint16_t  yData = 0 ;
+uint16_t  zData = 0 ;
+
+static void APP_ReceiveAccel
+(
+		coapSessionStatus_t sessionStatus,
+		void *pData,
+		coapSession_t *pSession,
+		uint32_t dataLen
+)
+{
+	uint8_t * recv_data =  (uint8_t * )( pData);
+
+	xData = (int16_t)((uint16_t)((uint16_t)recv_data[0]<< 8) | (uint16_t)recv_data[1]) / 4U;
+	yData = (int16_t)((uint16_t)((uint16_t)recv_data[2] << 8) | (uint16_t)recv_data[3]) / 4U;
+	zData = (int16_t)((uint16_t)((uint16_t)recv_data[4]<< 8) | (uint16_t)recv_data[5]) / 4U;
+
+	if (gCoapNonConfirmable_c == pSession->msgType)
+	{
+		shell_printf("'NON'received 'POST' with payload X=%i  Y=%i Z=%i ", xData , yData , zData );
+		shell_write("\r\n");
+		//COAP_CloseSession(pSession);
+	}
+	/**
+	if (gCoapConfirmable_c == pSession->msgType)
+	{
+		shell_write("'CON'received 'POST' with payload X=%i  Y=%i Z=%i ", xData , yData , zData );
+		shell_printf("\r\n  received  X=%i  Y=%i Z=%i ", xData , yData , zData );
+		shell_write("\r\n");
+		//COAP_CloseSession(pSession);
+	}
+	*/
+}
+// used to receive the counter
 static void APP_CoapResource2Cb
 (
 		coapSessionStatus_t sessionStatus,
@@ -1540,18 +1609,19 @@ static void APP_CoapResource2Cb
 	uint8_t * recv_data =  (uint8_t * )( pData);
 	if (gCoapNonConfirmable_c == pSession->msgType)
 	{
-		shell_write("'NON' packet received 'POST' with payload: ");
-		shell_printf("\r\n  received  %i", * recv_data);
-		shell_write("\r\n");
+		shell_printf("\r\n  'NON' packet received 'POST' with payload : Counter %i", * recv_data);
+		//shell_write("\r\n");
 		//COAP_CloseSession(pSession);
 	}
+	/*
 	if (gCoapConfirmable_c == pSession->msgType)
 	{
-		shell_write("'CON' packet received 'POST' with payload: ");
+		shell_write("\r\n  'CON' packet received 'POST' with payload : Counter %i", * recv_data);
 		shell_writeN(pData, dataLen);
 		shell_write("\r\n");
 		//COAP_CloseSession(pSession);
 	}
+	*/
 }
 
 static void APP_CoapTeam9Cb
@@ -1640,9 +1710,6 @@ static void APP_CoapTeam9Cb
 		{
 			shell_write("'NON' packet received 'PUT' with payload: ");
 		}
-
-
-
 	}
 
 	COAP_CloseSession(pSession);

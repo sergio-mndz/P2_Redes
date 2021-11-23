@@ -19,8 +19,6 @@ osaTaskId_t gTimerTaskHandler_ID;
 static void taskTimerCallback(void *param)
 {
 	//OSA_EventSet(timerEvents, gTimerTaskEvent1_c);
-
-
 	timer5s_extern_callback();
 }
 
