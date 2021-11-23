@@ -26,9 +26,13 @@ Include Files
 
 // Parte 2
 #include "math.h"
-//#include "fsl_fxos.h"
+#include "fsl_fxos.h"
 #include "fsl_i2c.h"
 #include "fsl_tpm.h"
+#include "fsl_port.h"
+#include "clock_config.h"
+#include "pin_mux.h"
+#include "fsl_gpio.h"
 
 #include "Timers.h"
 
@@ -102,6 +106,29 @@ Private macros
 
 #define APP_DEFAULT_DEST_ADDR                   in6addr_realmlocal_allthreadnodes
 
+// Practica parte 2
+/* The TPM instance/channel used for board */
+#define BOARD_TIMER_BASEADDR TPM2
+#define BOARD_FIRST_TIMER_CHANNEL 0U
+#define BOARD_SECOND_TIMER_CHANNEL 1U
+/* Get source clock for TPM driver */
+#define BOARD_TIMER_SOURCE_CLOCK CLOCK_GetFreq(kCLOCK_Osc0ErClk)
+#define TIMER_CLOCK_MODE 1U
+/* I2C source clock */
+#define ACCEL_I2C_CLK_SRC I2C1_CLK_SRC
+#define I2C_BAUDRATE 100000U
+
+#define I2C_RELEASE_SDA_PORT PORTC
+#define I2C_RELEASE_SCL_PORT PORTC
+#define I2C_RELEASE_SDA_GPIO GPIOC
+#define I2C_RELEASE_SDA_PIN 3U
+#define I2C_RELEASE_SCL_GPIO GPIOC
+#define I2C_RELEASE_SCL_PIN 2U
+#define I2C_RELEASE_BUS_COUNT 100U
+/* Upper bound and lower bound angle values */
+#define ANGLE_UPPER_BOUND 85U
+#define ANGLE_LOWER_BOUND 5U
+
 /*==================================================================================================
 Private type definitions
 ==================================================================================================*/
@@ -143,7 +170,7 @@ static void App_RestoreLeaderLed(uint8_t *param);
 static void APP_CoapResource1Cb(coapSessionStatus_t sessionStatus, void *pData, coapSession_t *pSession, uint32_t dataLen);
 static void APP_CoapResource2Cb(coapSessionStatus_t sessionStatus, void *pData, coapSession_t *pSession, uint32_t dataLen);
 static void APP_CoapTeam9Cb(coapSessionStatus_t sessionStatus, void *pData, coapSession_t *pSession, uint32_t dataLen);
-static void APP_CoapaccelCb(coapSessionStatus_t sessionStatus, void *pData, coapSession_t *pSession, uint32_t dataLen);
+static void APP_CoapAccelCb(coapSessionStatus_t sessionStatus, void *pData, coapSession_t *pSession, uint32_t dataLen);
 
 #if LARGE_NETWORK
 static void APP_CoapResetToFactoryDefaultsCb(coapSessionStatus_t sessionStatus, uint8_t *pData, coapSession_t *pSession, uint32_t dataLen);
@@ -153,6 +180,10 @@ static void APP_SendResetToFactoryCommand(uint8_t *param);
 static void APP_AutoStart(void *param);
 static void APP_AutoStartCb(void *param);
 #endif
+
+
+// Practica - parte 2
+void BOARD_I2C_ReleaseBus(void);
 
 /*==================================================================================================
 Public global variables declarations
@@ -166,7 +197,7 @@ const coapUriPath_t gAPP_RESOURCE1_URI_PATH = {SizeOfString(APP_RESOURCE1_URI_PA
 const coapUriPath_t gAPP_RESOURCE2_URI_PATH = {SizeOfString(APP_RESOURCE2_URI_PATH), APP_RESOURCE2_URI_PATH};
 //practica
 const coapUriPath_t gAPP_TEAM9_URI_PATH		= {SizeOfString(APP_TEAM9_URI_PATH), APP_TEAM9_URI_PATH};
-const coapUriPath_t gAPP_accel_URI_PATH		= {SizeOfString(APP_ACCEL_URI_PATH), APP_ACCEL_URI_PATH};
+const coapUriPath_t gAPP_ACCEL_URI_PATH		= {SizeOfString(APP_ACCEL_URI_PATH), APP_ACCEL_URI_PATH};
 
 #if LARGE_NETWORK
 const coapUriPath_t gAPP_RESET_URI_PATH = {SizeOfString(APP_RESET_TO_FACTORY_URI_PATH), (uint8_t *)APP_RESET_TO_FACTORY_URI_PATH};
@@ -200,9 +231,111 @@ taskMsgQueue_t *mpAppThreadMsgQueue = NULL;
 
 extern bool_t gEnable802154TxLed;
 
+// Practica - Parte 2
+i2c_master_handle_t g_MasterHandle;
+/* FXOS device address */
+const uint8_t g_accel_address[] = {0x1CU, 0x1DU, 0x1EU, 0x1FU};
+
 /*==================================================================================================
 Public functions
 ==================================================================================================*/
+
+// Practica - Parte 2
+
+static void i2c_release_bus_delay(void)
+{
+    uint32_t i = 0;
+    for (i = 0; i < I2C_RELEASE_BUS_COUNT; i++)
+    {
+        __NOP();
+    }
+}
+
+void BOARD_I2C_ReleaseBus(void)
+{
+    uint8_t i = 0;
+    gpio_pin_config_t pin_config;
+    port_pin_config_t i2c_pin_config = {0};
+
+    /* Config pin mux as gpio */
+    i2c_pin_config.pullSelect = kPORT_PullUp;
+    i2c_pin_config.mux = kPORT_MuxAsGpio;
+
+    pin_config.pinDirection = kGPIO_DigitalOutput;
+    pin_config.outputLogic = 1U;
+    CLOCK_EnableClock(kCLOCK_PortC);
+    PORT_SetPinConfig(I2C_RELEASE_SCL_PORT, I2C_RELEASE_SCL_PIN, &i2c_pin_config);
+    PORT_SetPinConfig(I2C_RELEASE_SDA_PORT, I2C_RELEASE_SDA_PIN, &i2c_pin_config);
+
+    GPIO_PinInit(I2C_RELEASE_SCL_GPIO, I2C_RELEASE_SCL_PIN, &pin_config);
+    GPIO_PinInit(I2C_RELEASE_SDA_GPIO, I2C_RELEASE_SDA_PIN, &pin_config);
+
+    /* Drive SDA low first to simulate a start */
+    GPIO_WritePinOutput(I2C_RELEASE_SDA_GPIO, I2C_RELEASE_SDA_PIN, 0U);
+    i2c_release_bus_delay();
+
+    /* Send 9 pulses on SCL and keep SDA high */
+    for (i = 0; i < 9; i++)
+    {
+        GPIO_WritePinOutput(I2C_RELEASE_SCL_GPIO, I2C_RELEASE_SCL_PIN, 0U);
+        i2c_release_bus_delay();
+
+        GPIO_WritePinOutput(I2C_RELEASE_SDA_GPIO, I2C_RELEASE_SDA_PIN, 1U);
+        i2c_release_bus_delay();
+
+        GPIO_WritePinOutput(I2C_RELEASE_SCL_GPIO, I2C_RELEASE_SCL_PIN, 1U);
+        i2c_release_bus_delay();
+        i2c_release_bus_delay();
+    }
+
+    /* Send stop */
+    GPIO_WritePinOutput(I2C_RELEASE_SCL_GPIO, I2C_RELEASE_SCL_PIN, 0U);
+    i2c_release_bus_delay();
+
+    GPIO_WritePinOutput(I2C_RELEASE_SDA_GPIO, I2C_RELEASE_SDA_PIN, 0U);
+    i2c_release_bus_delay();
+
+    GPIO_WritePinOutput(I2C_RELEASE_SCL_GPIO, I2C_RELEASE_SCL_PIN, 1U);
+    i2c_release_bus_delay();
+
+    GPIO_WritePinOutput(I2C_RELEASE_SDA_GPIO, I2C_RELEASE_SDA_PIN, 1U);
+    i2c_release_bus_delay();
+}
+
+/* Initialize timer module */
+static void Timer_Init(void)
+{
+    /* convert to match type of data */
+    tpm_config_t tpmInfo;
+    tpm_chnl_pwm_signal_param_t tpmParam[2];
+
+    /* Configure tpm params with frequency 24kHZ */
+    tpmParam[0].chnlNumber = (tpm_chnl_t)BOARD_FIRST_TIMER_CHANNEL;
+    tpmParam[0].level = kTPM_LowTrue;
+    tpmParam[0].dutyCyclePercent = 0U;
+
+    tpmParam[1].chnlNumber = (tpm_chnl_t)BOARD_SECOND_TIMER_CHANNEL;
+    tpmParam[1].level = kTPM_LowTrue;
+    tpmParam[1].dutyCyclePercent = 0U;
+
+    /* Initialize TPM module */
+    TPM_GetDefaultConfig(&tpmInfo);
+    TPM_Init(BOARD_TIMER_BASEADDR, &tpmInfo);
+
+    CLOCK_SetTpmClock(TIMER_CLOCK_MODE);
+
+    TPM_SetupPwm(BOARD_TIMER_BASEADDR, tpmParam, 2U, kTPM_EdgeAlignedPwm, 24000U, BOARD_TIMER_SOURCE_CLOCK);
+    TPM_StartTimer(BOARD_TIMER_BASEADDR, kTPM_SystemClock);
+}
+
+/* Update the duty cycle of an active pwm signal */
+static void Board_UpdatePwm(uint16_t x, uint16_t y)
+{
+    /* Updated duty cycle */
+    TPM_UpdatePwmDutycycle(BOARD_TIMER_BASEADDR, (tpm_chnl_t)BOARD_FIRST_TIMER_CHANNEL, kTPM_EdgeAlignedPwm, x);
+    TPM_UpdatePwmDutycycle(BOARD_TIMER_BASEADDR, (tpm_chnl_t)BOARD_SECOND_TIMER_CHANNEL, kTPM_EdgeAlignedPwm, y);
+}
+
 /*!*************************************************************************************************
 \fn     void APP_Init(void)
 \brief  This function is used to initialize application.
@@ -529,7 +662,7 @@ static void APP_InitCoapDemo
 			//{APP_CoapResource1Cb, (coapUriPath_t*)&gAPP_TEAM9_URI_PATH},  // LAB
 			{APP_CoapResource2Cb, (coapUriPath_t*)&gAPP_RESOURCE2_URI_PATH},  // LAB
 			{APP_CoapTeam9Cb, (coapUriPath_t*)&gAPP_TEAM9_URI_PATH},//PRACTICA
-			{APP_CoapaccelCb, (coapUriPath_t*)&gAPP_TEAM9_URI_PATH},//PRACTICA
+			{APP_CoapAccelCb, (coapUriPath_t*)&gAPP_ACCEL_URI_PATH},//PRACTICA
 
 
 #if LARGE_NETWORK
@@ -1528,7 +1661,7 @@ static void APP_CoapResource2Cb
 }
 
 
-static void APP_CoapaccelCb
+static void APP_CoapAccelCb
 (
 		coapSessionStatus_t sessionStatus,
 		void *pData,
