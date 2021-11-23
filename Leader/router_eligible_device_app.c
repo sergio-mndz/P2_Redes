@@ -244,7 +244,7 @@ i2c_master_config_t i2cConfig;
 uint8_t sensorRange = 0;
 uint8_t dataScale = 0;
 uint32_t i2cSourceClock;
-int16_t xData, yData;
+int16_t xData, yData, zData;
 int16_t xAngle, yAngle;
 uint8_t i = 0;
 uint8_t regResult = 0;
@@ -1752,29 +1752,46 @@ static void APP_CoapAccelCb
 	COAP_AddOptionToList(pMySession, COAP_URI_PATH_OPTION, APP_RESOURCE2_URI_PATH,SizeOfString(APP_RESOURCE2_URI_PATH));
 
 
-	/** print on shell the shell address of the requester*/
-	shell_printf("\r\n   Team 9  Received from %x%x::%x%x:%x%x::%x%x::%x%x", pSession->remoteAddrStorage.ss_addr[0],
-			pSession->remoteAddrStorage.ss_addr[1],
-
-			pSession->remoteAddrStorage.ss_addr[8],
-			pSession->remoteAddrStorage.ss_addr[9],
-
-			pSession->remoteAddrStorage.ss_addr[10],
-			pSession->remoteAddrStorage.ss_addr[11],
-
-			pSession->remoteAddrStorage.ss_addr[12],
-			pSession->remoteAddrStorage.ss_addr[13],
-
-			pSession->remoteAddrStorage.ss_addr[14]
-	);
-
 	if (gCoapConfirmable_c == pSession->msgType)
 	{
-
+		shell_write("\r\n CON Requested URI at accel: ");
 
 		if (gCoapGET_c == pSession->code)
 		{
 			shell_write("'CON' packet received 'GET' with payload: ");
+
+			/// send reply message
+			shell_write("\r\n");
+			pMySession -> msgType=gCoapConfirmable_c;
+			pMySession -> code= gCoapPOST_c;
+			pMySession -> pCallback =NULL;
+			FLib_MemCpy(&pMySession->remoteAddrStorage,&gCoapDestAddress,sizeof(ipAddr_t));
+
+	        /* Get new accelerometer data. */
+	        if (FXOS_ReadSensorData(&fxosHandle, &sensorData) != kStatus_Success)
+	        {
+	            return -1;
+	        }
+
+			uint8_t accel_reading[6];
+			accel_reading[0] = sensorData.accelXMSB;
+			accel_reading[1] = sensorData.accelXLSB;
+			accel_reading[2] = sensorData.accelYMSB;
+			accel_reading[3] = sensorData.accelYLSB;
+			accel_reading[4] = sensorData.accelZMSB;
+			accel_reading[5] = sensorData.accelZLSB;
+			COAP_Send(pMySession, gCoapMsgTypeNonPost_c, accel_reading, 6);
+	        xData = (int16_t)((uint16_t)((uint16_t)sensorData.accelXMSB << 8) | (uint16_t)sensorData.accelXLSB) / 4U;
+	        yData = (int16_t)((uint16_t)((uint16_t)sensorData.accelYMSB << 8) | (uint16_t)sensorData.accelYLSB) / 4U;
+	        zData = (int16_t)((uint16_t)((uint16_t)sensorData.accelZMSB << 8) | (uint16_t)sensorData.accelZLSB) / 4U;
+			shell_write("'CON' packet sent  with values X: ");
+			shell_printf(" %i", xData);
+			shell_printf(" Y: ");
+			shell_printf("%i", yData);
+			shell_printf(" Z: ");
+			shell_printf("%i", zData);
+			shell_write("\r\n");
+
 		}
 		if (gCoapPOST_c == pSession->code)
 		{
@@ -1795,7 +1812,7 @@ static void APP_CoapAccelCb
 
 	else if(gCoapNonConfirmable_c == pSession->msgType)
 	{
-		shell_write("\r\n NON Requested URI at team 9: ");
+		shell_write("\r\n NON Requested URI at accel: ");
 
 		if (gCoapGET_c == pSession->code)
 		{
@@ -1809,10 +1826,29 @@ static void APP_CoapAccelCb
 			pMySession -> pCallback =NULL;
 			FLib_MemCpy(&pMySession->remoteAddrStorage,&gCoapDestAddress,sizeof(ipAddr_t));
 
-			uint8_t counter  = getCounter();
-			COAP_Send(pMySession, gCoapMsgTypeNonPost_c, &counter, 1);
-			shell_write("'NON' packet sent  with counter value: ");
-			shell_printf(" %i", counter);
+	        /* Get new accelerometer data. */
+	        if (FXOS_ReadSensorData(&fxosHandle, &sensorData) != kStatus_Success)
+	        {
+	            return -1;
+	        }
+
+			uint8_t accel_reading[6];
+			accel_reading[0] = sensorData.accelXMSB;
+			accel_reading[1] = sensorData.accelXLSB;
+			accel_reading[2] = sensorData.accelYMSB;
+			accel_reading[3] = sensorData.accelYLSB;
+			accel_reading[4] = sensorData.accelZMSB;
+			accel_reading[5] = sensorData.accelZLSB;
+			COAP_Send(pMySession, gCoapMsgTypeNonPost_c, accel_reading, 6);
+	        xData = (int16_t)((uint16_t)((uint16_t)sensorData.accelXMSB << 8) | (uint16_t)sensorData.accelXLSB) / 4U;
+	        yData = (int16_t)((uint16_t)((uint16_t)sensorData.accelYMSB << 8) | (uint16_t)sensorData.accelYLSB) / 4U;
+	        zData = (int16_t)((uint16_t)((uint16_t)sensorData.accelZMSB << 8) | (uint16_t)sensorData.accelZLSB) / 4U;
+			shell_write("'NON' packet sent  with values X: ");
+			shell_printf(" %i", xData);
+			shell_printf(" Y: ");
+			shell_printf("%i", yData);
+			shell_printf(" Z: ");
+			shell_printf("%i", zData);
 			shell_write("\r\n");
 		}
 		if (gCoapPOST_c == pSession->code)
@@ -1823,8 +1859,6 @@ static void APP_CoapAccelCb
 		{
 			shell_write("'NON' packet received 'PUT' with payload: ");
 		}
-
-
 
 	}
 
