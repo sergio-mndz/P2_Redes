@@ -1752,14 +1752,16 @@ static void APP_CoapAccelCb
 	pMySession = COAP_OpenSession(mAppCoapInstId);
 	COAP_AddOptionToList(pMySession, COAP_URI_PATH_OPTION, APP_RECEIVE_ACCEL_URI_PATH,SizeOfString(APP_RECEIVE_ACCEL_URI_PATH));
 
+	char addrStr[INET6_ADDRSTRLEN];
+	ntop(AF_INET6, (ipAddr_t*)&pSession->remoteAddrStorage.ss_addr, addrStr, INET6_ADDRSTRLEN);
 
 	if (gCoapConfirmable_c == pSession->msgType)
 	{
-		shell_write("\r\n CON Requested URI at accel: ");
+		shell_printf("\r\n CON Requested URI at accel from %s", addrStr);
 
 		if (gCoapGET_c == pSession->code)
 		{
-			shell_write("'CON' packet received 'GET' with payload: ");
+			shell_write("\r\n'CON' packet received 'GET' ");
 
 			/// send reply message
 			shell_write("\r\n");
@@ -1813,11 +1815,11 @@ static void APP_CoapAccelCb
 
 	else if(gCoapNonConfirmable_c == pSession->msgType)
 	{
-		shell_write("\r\n NON Requested URI at accel: ");
+		shell_printf("\r\n NON Requested URI at accel from %s ", addrStr);
 
 		if (gCoapGET_c == pSession->code)
 		{
-			shell_write("'NON' packet received 'GET' with payload: ");
+			shell_write("\r\n 'NON' packet received 'GET' ");
 
 
 			/// send reply message
@@ -1878,24 +1880,13 @@ static void APP_CoapTeam9Cb
 	static uint32_t pMyPayloadSize=3;
 	coapSession_t *pMySession = NULL;
 	pMySession = COAP_OpenSession(mAppCoapInstId);
+	char addrStr[INET6_ADDRSTRLEN];
 	COAP_AddOptionToList(pMySession, COAP_URI_PATH_OPTION, APP_RESOURCE2_URI_PATH,SizeOfString(APP_RESOURCE2_URI_PATH));
 
-
+	ntop(AF_INET6, (ipAddr_t*)&pSession->remoteAddrStorage.ss_addr, addrStr, INET6_ADDRSTRLEN);
 	/** print on shell the shell address of the requester*/
-	shell_printf("\r\n   Team 9  Received from %x%x::%x%x:%x%x::%x%x::%x%x", pSession->remoteAddrStorage.ss_addr[0],
-			pSession->remoteAddrStorage.ss_addr[1],
+	shell_printf("\r\n Team 9  Received from %s \r\n", addrStr);
 
-			pSession->remoteAddrStorage.ss_addr[8],
-			pSession->remoteAddrStorage.ss_addr[9],
-
-			pSession->remoteAddrStorage.ss_addr[10],
-			pSession->remoteAddrStorage.ss_addr[11],
-
-			pSession->remoteAddrStorage.ss_addr[12],
-			pSession->remoteAddrStorage.ss_addr[13],
-
-			pSession->remoteAddrStorage.ss_addr[14]
-	);
 
 	if (gCoapConfirmable_c == pSession->msgType)
 	{

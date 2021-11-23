@@ -1579,7 +1579,9 @@ static void APP_ReceiveAccel
 		uint32_t dataLen
 )
 {
+	char addrStr[INET6_ADDRSTRLEN];
 	uint8_t * recv_data =  (uint8_t * )( pData);
+	ntop(AF_INET6, (ipAddr_t*)&pSession->remoteAddrStorage.ss_addr, addrStr, INET6_ADDRSTRLEN);
 
 	xData = (int16_t)((uint16_t)((uint16_t)recv_data[0]<< 8) | (uint16_t)recv_data[1]) / 4U;
 	yData = (int16_t)((uint16_t)((uint16_t)recv_data[2] << 8) | (uint16_t)recv_data[3]) / 4U;
@@ -1587,7 +1589,7 @@ static void APP_ReceiveAccel
 
 	if (gCoapNonConfirmable_c == pSession->msgType)
 	{
-		shell_printf("\r'NON'received 'POST' with payload X=%i  Y=%i Z=%i \n", xData , yData , zData );
+		shell_printf("\r'NON'received 'POST' with data X=%i  Y=%i Z=%i from %s \r\n", xData , yData , zData, addrStr );
 		shell_printf("\r\n");
 
 		//COAP_CloseSession(pSession);
@@ -1595,7 +1597,7 @@ static void APP_ReceiveAccel
 
 	if (gCoapConfirmable_c == pSession->msgType)
 	{
-		shell_printf("\r'CON'received 'POST' with payload X=%i  Y=%i Z=%i \n", xData , yData , zData );
+		shell_printf("\r'CON'received 'POST' with data X=%i  Y=%i Z=%i from %s \r\n", xData , yData , zData, addrStr );
 		shell_printf("\r\n");
 
 		//COAP_CloseSession(pSession);
@@ -1611,22 +1613,22 @@ static void APP_CoapResource2Cb
 		uint32_t dataLen
 )
 {
+	char addrStr[INET6_ADDRSTRLEN];
 	uint8_t * recv_data =  (uint8_t * )( pData);
+	ntop(AF_INET6, (ipAddr_t*)&pSession->remoteAddrStorage.ss_addr, addrStr, INET6_ADDRSTRLEN);
 	if (gCoapNonConfirmable_c == pSession->msgType)
 	{
-		shell_printf("\r\n  'NON' packet received 'POST' with payload : Counter %i", * recv_data);
+		shell_printf("\r\n  'NON' packet received 'POST' with Counter: %i from %s \r\n", * recv_data, addrStr);
 		//shell_write("\r\n");
 		//COAP_CloseSession(pSession);
 	}
-	/*
+
 	if (gCoapConfirmable_c == pSession->msgType)
 	{
-		shell_write("\r\n  'CON' packet received 'POST' with payload : Counter %i", * recv_data);
-		shell_writeN(pData, dataLen);
-		shell_write("\r\n");
+		shell_printf("\r\n  'CON' packet received 'POST' with Counter: %i from %s \r\n", * recv_data, addrStr);
+		//shell_write("\r\n");
 		//COAP_CloseSession(pSession);
 	}
-	 */
 }
 
 static void APP_CoapTeam9Cb
