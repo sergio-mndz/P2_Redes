@@ -25,6 +25,7 @@ Include Files
 #include "TimersManager.h"
 
 // Parte 2
+#include "board.h"
 #include "math.h"
 #include "fsl_fxos.h"
 #include "fsl_i2c.h"
@@ -33,6 +34,7 @@ Include Files
 #include "clock_config.h"
 #include "pin_mux.h"
 #include "fsl_gpio.h"
+#include "fsl_debug_console.h"
 
 #include "Timers.h"
 
@@ -236,6 +238,19 @@ i2c_master_handle_t g_MasterHandle;
 /* FXOS device address */
 const uint8_t g_accel_address[] = {0x1CU, 0x1DU, 0x1EU, 0x1FU};
 
+fxos_handle_t fxosHandle;
+fxos_data_t sensorData;
+i2c_master_config_t i2cConfig;
+uint8_t sensorRange = 0;
+uint8_t dataScale = 0;
+uint32_t i2cSourceClock;
+int16_t xData, yData;
+int16_t xAngle, yAngle;
+uint8_t i = 0;
+uint8_t regResult = 0;
+uint8_t array_addr_size = 0;
+bool_t foundDevice = false;
+
 /*==================================================================================================
 Public functions
 ==================================================================================================*/
@@ -363,6 +378,67 @@ void APP_Init
 
 	// Practica
 	timerTask_Init();
+
+	// Practica - Parte 2
+    BOARD_InitPins();
+    BOARD_I2C_ReleaseBus();
+    BOARD_I2C_ConfigurePins();
+
+    i2cSourceClock = CLOCK_GetFreq(ACCEL_I2C_CLK_SRC);
+    fxosHandle.base = BOARD_ACCEL_I2C_BASEADDR;
+    fxosHandle.i2cHandle = &g_MasterHandle;
+
+    I2C_MasterGetDefaultConfig(&i2cConfig);
+    I2C_MasterInit(BOARD_ACCEL_I2C_BASEADDR, &i2cConfig, i2cSourceClock);
+    I2C_MasterTransferCreateHandle(BOARD_ACCEL_I2C_BASEADDR, &g_MasterHandle, NULL, NULL);
+
+    /* Find sensor devices */
+    array_addr_size = sizeof(g_accel_address) / sizeof(g_accel_address[0]);
+    for (i = 0; i < array_addr_size; i++)
+    {
+        fxosHandle.xfer.slaveAddress = g_accel_address[i];
+        if (FXOS_ReadReg(&fxosHandle, WHO_AM_I_REG, &regResult, 1) == kStatus_Success)
+        {
+            foundDevice = true;
+            break;
+        }
+        if ((i == (array_addr_size - 1)) && (!foundDevice))
+        {
+            PRINTF("\r\nDo not found sensor device\r\n");
+            while (1)
+            {
+            };
+        }
+    }
+
+    /* Init accelerometer sensor */
+    if (FXOS_Init(&fxosHandle) != kStatus_Success)
+    {
+        return -1;
+    }
+
+    /* Get sensor range */
+    if (FXOS_ReadReg(&fxosHandle, XYZ_DATA_CFG_REG, &sensorRange, 1) != kStatus_Success)
+    {
+        return -1;
+    }
+    if (sensorRange == 0x00)
+    {
+        dataScale = 2U;
+    }
+    else if (sensorRange == 0x01)
+    {
+        dataScale = 4U;
+    }
+    else if (sensorRange == 0x10)
+    {
+        dataScale = 8U;
+    }
+    else
+    {
+    }
+    /* Init timer */
+    Timer_Init();
 
 #if THR_ENABLE_EVENT_MONITORING
 	/* Initialize event monitoring */
