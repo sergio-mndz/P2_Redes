@@ -101,6 +101,7 @@ Private macros
 //practica
 #define APP_TEAM9_URI_PATH						"/team9"
 #define APP_ACCEL_URI_PATH                      "/accel"
+#define APP_RECEIVE_ACCEL_URI_PATH 				"/receive_accel"
 
 #if LARGE_NETWORK
 #define APP_RESET_TO_FACTORY_URI_PATH           "/reset"
@@ -1749,7 +1750,7 @@ static void APP_CoapAccelCb
 	static uint32_t pMyPayloadSize=3;
 	coapSession_t *pMySession = NULL;
 	pMySession = COAP_OpenSession(mAppCoapInstId);
-	COAP_AddOptionToList(pMySession, COAP_URI_PATH_OPTION, APP_RESOURCE2_URI_PATH,SizeOfString(APP_RESOURCE2_URI_PATH));
+	COAP_AddOptionToList(pMySession, COAP_URI_PATH_OPTION, APP_RECEIVE_ACCEL_URI_PATH,SizeOfString(APP_RECEIVE_ACCEL_URI_PATH));
 
 
 	if (gCoapConfirmable_c == pSession->msgType)
