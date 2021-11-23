@@ -31,4 +31,8 @@ void timerTask_Init(void);
 
 void timer5s_extern_callback();
 
+
+
+void timer7s_Start(void);
+void timer7s_extern_callback();
 #endif /* TIMERS_H_ */

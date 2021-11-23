@@ -10,6 +10,7 @@
 osaEventId_t timerEvents;
 /* Global Variable to store our TimerID */
 tmrTimerID_t timer5sID;
+tmrTimerID_t timer7sID;
 /* Handler ID for task */
 osaTaskId_t gTimerTaskHandler_ID;
 /* Local variable to store the current state of the LEDs */
@@ -20,6 +21,12 @@ static void taskTimerCallback(void *param)
 {
 	//OSA_EventSet(timerEvents, gTimerTaskEvent1_c);
 	timer5s_extern_callback();
+}
+
+static void taskTimer7sCallback(void *param)
+{
+	//OSA_EventSet(timerEvents, gTimerTaskEvent1_c);
+	timer7s_extern_callback();
 }
 
 
@@ -68,4 +75,17 @@ void timer5s_Start(void)
 			taskTimerCallback, /* pointer to myTaskTimerCallback function */
 			NULL
 	);
+}
+
+
+
+void timer7s_Start(void)
+{
+	timer7sID = TMR_AllocateTimer();
+	TMR_StartIntervalTimer(timer7sID, /*myTimerID*/
+			7000, /* Timer's Timeout */
+			taskTimer7sCallback, /* pointer to myTaskTimerCallback function */
+			NULL
+	);
+
 }

@@ -333,14 +333,14 @@ inline  void coap_get_accel( void)
 
 	/// send reply message
 	shell_write("\r\n");
-	pMySession -> msgType=gCoapNonConfirmable_c;
+	pMySession -> msgType=gCoapConfirmable_c;
 	pMySession -> code= gCoapGET_c;
 	pMySession -> pCallback =NULL;
 	FLib_MemCpy(&pMySession->remoteAddrStorage,&gCoapDestAddress,sizeof(ipAddr_t));
 
 	uint8_t counter = (uint8_t)'A' ;
-	COAP_Send(pMySession, gCoapMsgTypeNonGet_c, &counter, 1);
-	shell_write("Requested  NON' packet to get accel value \n ");
+	COAP_Send(pMySession, gCoapMsgTypeConGet_c, &counter, 1);
+	shell_write("\r Requested  CON' packet to get accel value \n ");
 }
 
 inline void coap_get_time( void)
@@ -372,12 +372,15 @@ extern void timer5s_extern_callback(){
 	toggle_w_LED();
 
 	// only this must be called every 5 seconds.
-	//coap_get_time();
-	coap_get_accel();
+	coap_get_time();
+
 }
 
 
-
+void timer7s_extern_callback()
+{
+	coap_get_accel();
+}
 
 /*!*************************************************************************************************
 \fn     void Stack_to_APP_Handler(void *param)
@@ -428,6 +431,7 @@ void Stack_to_APP_Handler
 
 		// Practica
 		timer5s_Start();
+		timer7s_Start();
 		break;
 
 	case gThrEv_GeneralInd_RequestRouterId_c:
@@ -1583,19 +1587,20 @@ static void APP_ReceiveAccel
 
 	if (gCoapNonConfirmable_c == pSession->msgType)
 	{
-		shell_printf("'NON'received 'POST' with payload X=%i  Y=%i Z=%i ", xData , yData , zData );
-		shell_write("\r\n");
+		shell_printf("\r'NON'received 'POST' with payload X=%i  Y=%i Z=%i \n", xData , yData , zData );
+		shell_printf("\r\n");
+
 		//COAP_CloseSession(pSession);
 	}
-	/**
+
 	if (gCoapConfirmable_c == pSession->msgType)
 	{
-		shell_write("'CON'received 'POST' with payload X=%i  Y=%i Z=%i ", xData , yData , zData );
-		shell_printf("\r\n  received  X=%i  Y=%i Z=%i ", xData , yData , zData );
-		shell_write("\r\n");
+		shell_printf("\r'CON'received 'POST' with payload X=%i  Y=%i Z=%i \n", xData , yData , zData );
+		shell_printf("\r\n");
+
 		//COAP_CloseSession(pSession);
 	}
-	*/
+
 }
 // used to receive the counter
 static void APP_CoapResource2Cb
@@ -1621,7 +1626,7 @@ static void APP_CoapResource2Cb
 		shell_write("\r\n");
 		//COAP_CloseSession(pSession);
 	}
-	*/
+	 */
 }
 
 static void APP_CoapTeam9Cb
